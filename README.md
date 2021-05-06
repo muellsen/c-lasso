@@ -1,27 +1,34 @@
+[![arXiv](https://img.shields.io/badge/arXiv-2011.00898-b31b1b.svg)](https://arxiv.org/abs/2011.00898)
+[![DOI](https://joss.theoj.org/papers/10.21105/joss.02844/status.svg)](https://doi.org/10.21105/joss.02844)
+
+<img src="https://i.imgur.com/2nGwlux.png" alt="c-lasso" height="145" align="right"/>
+
 # c-lasso: a Python package for constrained sparse regression and classification 
-=========
+
 
 c-lasso is a Python package that enables sparse and robust linear regression and classification with linear equality
-constraints on the model parameters. The forward model is assumed to be: 
+constraints on the model parameters. For detailed info, one can check the [documentation](https://c-lasso.readthedocs.io/en/latest/).
 
-<img src="https://latex.codecogs.com/gif.latex?y&space;=X\beta&space;+\sigma&space;\epsilon&space;\qquad\txt{s.t.}\qquad&space;C\beta=0" /> 
+The forward model is assumed to be: 
+
+<img src="https://latex.codecogs.com/gif.latex?y=X\beta&plus;\sigma\epsilon\qquad\text{s.t.}\qquad&space;C\beta=0" title="y=X\beta+\sigma\epsilon\qquad\text{s.t.}\qquad C\beta=0" />
 
 Here, y and X are given outcome and predictor data. The vector y can be continuous (for regression) or binary (for classification). C is a general constraint matrix. The vector &beta; comprises the unknown coefficients and &sigma; an 
 unknown scale.
 
 The package handles several different estimators for inferring &beta; (and &sigma;), including 
-the constrained Lasso, the constrained scaled Lasso, and sparse Huber M-estimation with linear equality constraints.
+the constrained Lasso, the constrained scaled Lasso, sparse Huber M-estimation with linear equality constraints, and regularized Support Vector Machines.
 Several different algorithmic strategies, including path and proximal splitting algorithms, are implemented to solve 
 the underlying convex optimization problems.
 
 We also include two model selection strategies for determining the sparsity of the model parameters: k-fold cross-validation and stability selection.   
 
-This package is intended to fill the gap between popular python tools such as [scikit-learn](https://scikit-learn.org/stable/) which CANNOT solve sparse constrained problems and general-purpose optimization solvers that do not scale well for the considered problems.
+This package is intended to fill the gap between popular python tools such as [scikit-learn](https://scikit-learn.org/stable/) which CANNOT solve sparse constrained problems and general-purpose optimization solvers that do not scale well or are inaccurate (see [benchmarks](./benchmark/README.md)) for the considered problems. In its current stage, however, c-lasso is not yet compatible with the scikit-learn API but rather a stand-alone tool.
 
-Below we show several use cases of the package, including an application of sparse log-contrast
-regression tasks for compositional microbiome data.
+Below we show several use cases of the package, including an application of sparse *log-contrast*
+regression tasks for *compositional* microbiome data.
 
-The code builds on results from several papers which can be found in the [References](#references).
+The code builds on results from several papers which can be found in the [References](#references). We also refer to the accompanying [JOSS paper submission](https://github.com/Leo-Simpson/c-lasso/blob/master/paper/paper.md), also available on [arXiv](https://arxiv.org/pdf/2011.00898.pdf).
 
 ## Table of Contents
 
@@ -29,9 +36,9 @@ The code builds on results from several papers which can be found in the [Refere
 * [Regression and classification problems](#regression-and-classification-problems)
 * [Getting started](#getting-started)
 * [Log-contrast regression for microbiome data](#log-contrast-regression-for-microbiome-data)
-* [Two main functions](#two-main-functions)
-* [Misc functions](#little-functions)
 * [Optimization schemes](#optimization-schemes)
+
+
 * [References](#references)
 
 
@@ -41,24 +48,23 @@ c-lasso is available on pip. You can install the package
 in the shell using
 
 ```shell
-pip install c_lasso
+pip install c-lasso
 ```
 To use the c-lasso package in Python, type 
 
 ```python
-from classo import *
+
+from classo import classo_problem 
+# one can add auxiliary functions as well such as random_data or csv_to_np
 ```
 
-The c-lasso package depends on several standard Python packages. 
-To import these packages, use 
+The `c-lasso` package depends on the following Python packages:
 
-```shell
-pip install numpy
-pip install matplotlib
-pip install scipy
-pip install pandas
-pip install time
-```
+- `numpy`; 
+- `matplotlib`; 
+- `scipy`; 
+- `pandas`; 
+- `pytest` (for tests)
 
 ##  Regression and classification problems
 
@@ -72,42 +78,47 @@ four regression-type and two classification-type formulations.
 This is the standard Lasso problem with linear equality constraints on the &beta; vector. 
 The objective function combines Least-Squares for model fitting with l1 penalty for sparsity.   
 
-#### [R2] Contrained sparse Huber regression:                   
+#### [R2] Constrained sparse Huber regression:                   
 
-<img src="https://latex.codecogs.com/gif.latex?\arg\min_{\beta\in&space;R^d}&space;h_{\rho}(X\beta-y)&space;&plus;&space;\lambda&space;||\beta||_1&space;\qquad\mbox{s.t.}\qquad&space;C\beta=0"  />
+<img src="https://latex.codecogs.com/gif.latex?\arg\min_{\beta\in&space;R^d}&space;h_{\rho}(X\beta-y&space;)&space;&plus;&space;\lambda&space;||\beta||_1&space;\qquad\mbox{s.t.}\qquad&space;C\beta=0" />
 
 This regression problem uses the [Huber loss](https://en.wikipedia.org/wiki/Huber_loss) as objective function 
 for robust model fitting with l1 and linear equality constraints on the &beta; vector. The parameter &rho;=1.345.
 
-#### [R3] Contrained scaled Lasso regression: 
+#### [R3] Constrained scaled Lasso regression: 
 
-<img src="https://latex.codecogs.com/gif.latex?\arg\min_{\beta\in&space;R^d,&space;\sigma>0}&space;\frac{||&space;X\beta-y&space;||^2}{\sigma}&plus;&space;n\sigma&space;&plus;&space;\lambda&space;||\beta||_1&space;\qquad\mbox{s.t.}\qquad&space;C\beta=0"  />
+<img src="https://latex.codecogs.com/gif.latex?\arg&space;\min_{\beta&space;\in&space;\mathbb{R}^d,&space;\sigma&space;>&space;0}&space;\frac{||&space;X\beta&space;-&space;y||^2}{\sigma}&space;&plus;&space;\frac{n}{2}&space;\sigma&plus;&space;\lambda&space;||\beta||_1&space;\qquad&space;\mbox{s.t.}&space;\qquad&space;C\beta&space;=&space;0" title="\arg \min_{\beta \in \mathbb{R}^d, \sigma > 0} \frac{|| X\beta - y||^2}{\sigma} + \frac{n}{2} \sigma+ \lambda ||\beta||_1 \qquad \mbox{s.t.} \qquad C\beta = 0" />
 
 This formulation is similar to [R1] but allows for joint estimation of the (constrained) &beta; vector and 
 the standard deviation &sigma; in a concomitant fashion (see [References](#references) [4,5] for further info).
 This is the default problem formulation in c-lasso.
 
-#### [R4] Contrained sparse Huber regression with concomitant scale estimation:        
+#### [R4] Constrained sparse Huber regression with concomitant scale estimation:        
 
-<img src="https://latex.codecogs.com/gif.latex?\arg\min_{\beta\in&space;R^d,&space;\sigma>0}&space;h_{\rho}(\frac{X\beta-y}{\sigma}&space;)&space;&plus;&space;n\sigma&space;&plus;&space;\lambda&space;||\beta||_1&space;\qquad\mbox{s.t.}\qquad&space;C\beta=0" />
+<img src="https://latex.codecogs.com/gif.latex?\arg&space;\min_{\beta&space;\in&space;\mathbb{R}^d,&space;\sigma&space;>&space;0}&space;\left(&space;h_{\rho}&space;\left(&space;\frac{&space;X\beta&space;-&space;y}{\sigma}&space;\right)&plus;&space;n&space;\right)&space;\sigma&plus;&space;\lambda&space;||\beta||_1&space;\qquad&space;\mbox{s.t.}&space;\qquad&space;C\beta&space;=&space;0" title="\arg \min_{\beta \in \mathbb{R}^d, \sigma > 0} \left( h_{\rho} \left( \frac{ X\beta - y}{\sigma} \right)+ n \right) \sigma+ \lambda ||\beta||_1 \qquad \mbox{s.t.} \qquad C\beta = 0" />
 
 This formulation combines [R2] and [R3] to allow robust joint estimation of the (constrained) &beta; vector and 
 the scale &sigma; in a concomitant fashion (see [References](#references) [4,5] for further info).
 
-#### [C1] Contrained sparse classification with Square Hinge loss: 
+#### [C1] Constrained sparse classification with Square Hinge loss: 
 
-<img src="https://latex.codecogs.com/gif.latex?\arg\min_{\beta\in&space;R^d}&space;l(y^TX\beta)&space;&plus;&space;\lambda&space;||\beta||_1&space;\qquad\mbox{s.t.}\qquad&space;C\beta=0" />
-where l is defined as :
-<img src="https://latex.codecogs.com/gif.latex?l(r)=\max(1-r,0)^2" />
+<img src="https://latex.codecogs.com/gif.latex?\arg&space;\min_{\beta&space;\in&space;\mathbb{R}^d}&space;\sum_{i=1}^n&space;l(y_i&space;x_i^\top&space;\beta)&space;&plus;&space;\lambda&space;\left\lVert&space;\beta\right\rVert_1&space;\qquad&space;s.t.&space;\qquad&space;C\beta&space;=&space;0" title="\arg \min_{\beta \in \mathbb{R}^d} \sum_{i=1}^n l(y_i x_i \beta) + \lambda \left\lVert \beta\right\rVert_1 \qquad s.t. \qquad C\beta = 0" />
+
+where the x<sub>i</sub> are the rows of X and l is defined as:
+
+<img src="https://latex.codecogs.com/gif.latex?l(r)&space;=&space;\begin{cases}&space;(1-r)^2&space;&&space;if&space;\quad&space;r&space;\leq&space;1&space;\\&space;0&space;&if&space;\quad&space;r&space;\geq&space;1&space;\end{cases}" title="l(r) = \begin{cases} (1-r)^2 & if \quad r \leq 1 \\ 0 &if \quad r \geq 1 \end{cases}" />
 
 This formulation is similar to [R1] but adapted for classification tasks using the Square Hinge loss
 with (constrained) sparse &beta; vector estimation.
 
-#### [C2] Contrained sparse classification with Huberized Square Hinge loss:        
+#### [C2] Constrained sparse classification with Huberized Square Hinge loss:        
 
-<img src="https://latex.codecogs.com/gif.latex?\arg\min_{\beta\in&space;R^d}&space;l_{\rho}(y^TX\beta)&space;&plus;&space;\lambda&space;||\beta||_1&space;\qquad\mbox{s.t.}\qquad&space;C\beta=0" />
-where l is defined as :
-<img src="https://latex.codecogs.com/gif.latex?l_{\rho}(r)&space;=&space;\begin{cases}&space;(1-r)^2&space;&\mbox{if&space;}&space;\rho&space;\leq&space;r&space;\leq&space;1&space;\\&space;(1-\rho)(1&plus;\rho-2r)&space;&\mbox{if&space;}&space;r&space;\leq&space;\rho&space;\\&space;0&space;&\mbox{if&space;}&space;r&space;\geq&space;1&space;\end{cases}" title="l_{\rho}(r) = \begin{cases} (1-r)^2 &\mbox{if } \rho \leq r \leq 1 \\ (1-\rho)(1+\rho-2r) &\mbox{if } r \leq \rho \\ 0 &\mbox{if } r \geq 1 \end{cases}" />
+<img src="https://latex.codecogs.com/gif.latex?\arg&space;\min_{\beta&space;\in&space;\mathbb{R}^d}&space;\sum_{i=1}^n&space;l_{\rho}(y_i&space;x_i^\top\beta)&space;&plus;&space;\lambda&space;\left\lVert&space;\beta\right\rVert_1&space;\qquad&space;s.t.&space;\qquad&space;C\beta&space;=&space;0" title="\arg \min_{\beta \in \mathbb{R}^d} \sum_{i=1}^n l_{\rho}(y_i x_i\beta) + \lambda \left\lVert \beta\right\rVert_1 \qquad s.t. \qquad C\beta = 0" />
+
+where the x<sub>i</sub> are the rows of X and l<sub>ρ</sub> is defined as:
+
+<img src="https://latex.codecogs.com/gif.latex?l_{\rho}(r)&space;=&space;\begin{cases}&space;(1-r)^2&space;&if&space;\quad&space;\rho&space;\leq&space;r&space;\leq&space;1&space;\\&space;(1-\rho)(1&plus;\rho-2r)&space;&&space;if&space;\quad&space;r&space;\leq&space;\rho&space;\\&space;0&space;&if&space;\quad&space;r&space;\geq&space;1&space;\end{cases}" title="l_{\rho}(r) = \begin{cases} (1-r)^2 &if \quad \rho \leq r \leq 1 \\ (1-\rho)(1+\rho-2r) & if \quad r \leq \rho \\ 0 &if \quad r \geq 1 \end{cases}" />
+
 
 This formulation is similar to [C1] but uses the Huberized Square Hinge loss for robust classification 
 with (constrained) sparse &beta; vector estimation.
@@ -115,14 +126,16 @@ with (constrained) sparse &beta; vector estimation.
 
 ## Getting started
 
-#### Basic example             
+#### Basic example
 
-We begin with a basic example that shows how to run c-lasso on synthetic data. The c-lasso package includes
+We begin with a basic example that shows how to run c-lasso on synthetic data. This example and the next one can be found on the notebook 'Synthetic data Notebook.ipynb'
+
+The c-lasso package includes
 the routine ```random_data``` that allows you to generate problem instances using normally distributed data.
 
 ```python
-n,d,d_nonzero,k,sigma =100,100,5,1,0.5
-(X,C,y),sol = random_data(n,d,d_nonzero,k,sigma,zerosum=True)
+m, d, d_nonzero, k, sigma = 100, 200, 5, 1, 0.5
+(X, C, y), sol = random_data(m, d, d_nonzero, k, sigma, zerosum=True, seed=1)
 ```
 This code snippet generates a problem instance with sparse &beta; in dimension
 d=100 (sparsity d_nonzero=5). The design matrix X comprises n=100 samples generated from an i.i.d standard normal
@@ -132,7 +145,7 @@ and the regression vector &beta; is then generated to satisfy the given constrai
 
 Next we can define a default c-lasso problem instance with the generated data:
 ```python
-problem = classo_problem(X,y,C) 
+problem = classo_problem(X, y, C) 
 ```
 You can look at the generated problem instance by typing:
 
@@ -143,11 +156,20 @@ print(problem)
 This gives you a summary of the form:
 
 ```
-FORMULATION : Concomitant
-
-MODEL SELECTION COMPUTED :  Stability selection, 
-
-STABILITY SELECTION PARAMETERS: method = first;  lamin = 0.01;  B = 50;  q = 10;  pourcent_nS = 0.5;  threshold = 0.9;  numerical_method = ODE
+FORMULATION: R3
+ 
+MODEL SELECTION COMPUTED:  
+     Stability selection
+ 
+STABILITY SELECTION PARAMETERS: 
+     numerical_method : not specified
+     method : first
+     B = 50
+     q = 10
+     percent_nS = 0.5
+     threshold = 0.7
+     lamin = 0.01
+     Nlam = 50
 ```
 As we have not specified any problem, algorithm, or model selection settings, this problem instance
 represents the *default* settings for a c-lasso instance: 
@@ -168,30 +190,25 @@ can be visualized using
 print(problem.solution)
 ```
 
-The command shows the running time(s) for the c-lasso problem instance
+The command shows the running time(s) for the c-lasso problem instance, and the selected variables for sability selection
 
 ```
-SPEEDNESS : 
-Running time for Cross Validation    : 'not computed'
-Running time for Stability Selection : 2.15s
-Running time for Fixed LAM           : 'not computed'
+STABILITY SELECTION : 
+   Selected variables :  7    63    148    164    168    
+   Running time :  1.546s
+
 ```
 
 Here, we only used stability selection as *default* model selection strategy. 
 The command also allows you to inspect the computed stability profile for all variables 
 at the theoretical &lambda; 
 
-![1.StabSel](https://github.com/Leo-Simpson/Figures/blob/master/example1/StabSel.png)
-
-and the entire &lambda; path (as we have used the path algorithm for optimization). We can see that stability selection
-can identify the five true non-zero entries in the &beta; vector
-
-![StabSel-path](https://github.com/Leo-Simpson/Figures/blob/master/example1/StabSel-path.png)
+![1.StabSel](https://github.com/Leo-Simpson/c-lasso/blob/master/figures/basic/StabSel.png)
 
 
 The refitted &beta; values on the selected support are also displayed in the next plot
 
-![beta](https://github.com/Leo-Simpson/Figures/blob/master/example1/beta.png)
+![beta](https://github.com/Leo-Simpson/c-lasso/blob/master/figures/basic/beta.png)
 
 
 #### Advanced example             
@@ -200,143 +217,239 @@ In the next example, we show how one can specify different aspects of the proble
 formulation and model selection strategy.
 
 ```python
-problem                                     = classo_problem(X,y,C)
+m,  d,  d_nonzero,  k, sigma = 100, 200, 5, 0, 0.5
+(X, C, y), sol = random_data(m, d, d_nonzero, k, sigma, zerosum = True, seed = 4)
+problem                                     = classo_problem(X, y, C)
 problem.formulation.huber                   = True
 problem.formulation.concomitant             = False
 problem.model_selection.CV                  = True
 problem.model_selection.LAMfixed            = True
-problem.model_selection.SSparameters.method = 'max'
+problem.model_selection.PATH                = True
+problem.model_selection.StabSelparameters.method = 'max'
+problem.model_selection.CVparameters.seed = 1
+problem.model_selection.LAMfixedparameters.rescaled_lam = True
+problem.model_selection.LAMfixedparameters.lam = .1
+
 problem.solve()
 print(problem)
+
 print(problem.solution)
 
-problem.solution.CV.graphic(mse_max = 1.)
 ```
 
 Results : 
 ```
-FORMULATION : Huber
+     FORMULATION: R2
+     
+     MODEL SELECTION COMPUTED:  
+          Lambda fixed
+          Path
+          Cross Validation
+          Stability selection
+     
+     LAMBDA FIXED PARAMETERS: 
+          numerical_method = Path-Alg
+          rescaled lam : True
+          threshold = 0.09
+          lam = 0.1
+          theoretical_lam = 0.224
+     
+     PATH PARAMETERS: 
+          numerical_method : Path-Alg
+          lamin = 0.001
+          Nlam = 80
+     
+     
+     CROSS VALIDATION PARAMETERS: 
+          numerical_method : Path-Alg
+          one-SE method : True
+          Nsubset = 5
+          lamin = 0.001
+          Nlam = 80
+     
+     
+     STABILITY SELECTION PARAMETERS: 
+          numerical_method : Path-Alg
+          method : max
+          B = 50
+          q = 10
+          percent_nS = 0.5
+          threshold = 0.7
+          lamin = 0.01
+          Nlam = 50
 
-MODEL SELECTION COMPUTED :  Cross Validation,  Stability selection, Lambda fixed
+     LAMBDA FIXED : 
+     Selected variables :  17    59    123    
+     Running time :  0.104s
 
-CROSS VALIDATION PARAMETERS: Nsubset = 5  lamin = 0.001  n_lam = 500;  numerical_method = ODE
+     PATH COMPUTATION : 
+     Running time :  0.638s
 
-STABILITY SELECTION PARAMETERS: method = max;  lamin = 0.01;  B = 50;  q = 10;  pourcent_nS = 0.5;  threshold = 0.9;  numerical_method = ODE
+     CROSS VALIDATION : 
+     Selected variables :  16    17    57    59    64    73    74    76    93    115    123    134    137    181    
+     Running time :  2.1s
 
-LAMBDA FIXED PARAMETERS: lam = theoritical;  theoritical_lam = 0.3988;  numerical_method = ODE
+     STABILITY SELECTION : 
+     Selected variables :  17    59    76    123    137    
+     Running time :  6.062s
 
-SPEEDNESS : 
-Running time for Cross Validation    : 1.013s
-Running time for Stability Selection : 2.281s
-Running time for Fixed LAM           : 0.065s
 ```
 
 
-![2.StabSel](https://github.com/Leo-Simpson/Figures/blob/master/example2/StabSel.png)
+![2.StabSel](https://github.com/Leo-Simpson/c-lasso/blob/master/figures/advanced/StabSel.png)
 
-![2.StabSel-beta](https://github.com/Leo-Simpson/Figures/blob/master/example2/StabSel-beta.png)
+![2.StabSel-beta](https://github.com/Leo-Simpson/c-lasso/blob/master/figures/advanced/StabSel-beta.png)
 
-![2.CV-beta](https://github.com/Leo-Simpson/Figures/blob/master/example2/CV-beta.png)
+![2.CV-beta](https://github.com/Leo-Simpson/c-lasso/blob/master/figures/advanced/CVbeta.png)
 
-![2.CV-graph](https://github.com/Leo-Simpson/Figures/blob/master/example2/CV-graph.png)
+![2.CV-graph](https://github.com/Leo-Simpson/c-lasso/blob/master/figures/advanced/CV.png)
 
-![2.LAM-beta](https://github.com/Leo-Simpson/Figures/blob/master/example2/LAM-beta.png)
+![2.LAM-beta](https://github.com/Leo-Simpson/c-lasso/blob/master/figures/advanced/beta.png)
+
+![2.Path](https://github.com/Leo-Simpson/c-lasso/blob/master/figures/advanced/Beta-path.png)
 
 
 ## Log-contrast regression for microbiome data
 
-
+In the [the accompanying notebook](./examples/example-notebook.ipynb) we study several microbiome data sets. We showcase two examples below.
 
 #### BMI prediction using the COMBO dataset 
 
-Here is now the result of running the file "example_COMBO" which uses microbiome data :  
-```
-FORMULATION : Concomitant
+We first consider the [COMBO data set](./examples/COMBO_data) and show how to predict Body Mass Index (BMI) from microbial genus abundances and two non-compositional covariates  using "filtered_data".
 
-MODEL SELECTION COMPUTED :  Path,  Stability selection, Lambda fixed
+```python
+from classo import csv_to_np, classo_problem, clr
 
-STABILITY SELECTION PARAMETERS: method = lam;  lamin = 0.01;  lam = theoritical;  B = 50;  q = 10;  percent_nS = 0.5;  threshold = 0.7;  numerical_method = ODE
+# Load microbiome and covariate data X
+X0  = csv_to_np('COMBO_data/complete_data/GeneraCounts.csv', begin = 0).astype(float)
+X_C = csv_to_np('COMBO_data/CaloriData.csv', begin = 0).astype(float)
+X_F = csv_to_np('COMBO_data/FatData.csv', begin = 0).astype(float)
 
-LAMBDA FIXED PARAMETERS: lam = theoritical;  theoritical_lam = 19.1709;  numerical_method = ODE
-
-PATH PARAMETERS: Npath = 40  n_active = False  lamin = 0.011220184543019636;  numerical_method = ODE
-objc[46200]: Class FIFinderSyncExtensionHost is implemented in both /System/Library/PrivateFrameworks/FinderKit.framework/Versions/A/FinderKit (0x7fff96e66b68) and /System/Library/PrivateFrameworks/FileProvider.framework/OverrideBundles/FinderSyncCollaborationFileProviderOverride.bundle/Contents/MacOS/FinderSyncCollaborationFileProviderOverride (0x116315cd8). One of the two will be used. Which one is undefined.
-SELECTED PARAMETERS : 
-27  Clostridium
-SIGMA FOR LAMFIXED  :  8.43571426081596
-SPEEDNESS : 
-Running time for Path computation    : 0.057s
-Running time for Cross Validation    : 'not computed'
-Running time for Stability Selection : 1.002s
-Running time for Fixed LAM           : 0.028s
+# Load BMI measurements y
+y   = csv_to_np('COMBO_data/BMI.csv', begin = 0).astype(float)[:, 0]
+labels = csv_to_np('COMBO_data/complete_data/GeneraPhylo.csv').astype(str)[:, -1]
 
 
-FORMULATION : Concomitant_Huber
+# Normalize/transform data
+y   = y - np.mean(y) #BMI data (n = 96)
+X_C = X_C - np.mean(X_C, axis = 0)  #Covariate data (Calorie)
+X_F = X_F - np.mean(X_F, axis = 0)  #Covariate data (Fat)
+X0 = clr(X0, 1 / 2).T
 
-MODEL SELECTION COMPUTED :  Path,  Stability selection, Lambda fixed
-
-STABILITY SELECTION PARAMETERS: method = lam;  lamin = 0.01;  lam = theoritical;  B = 50;  q = 10;  percent_nS = 0.5;  threshold = 0.7;  numerical_method = ODE
-
-LAMBDA FIXED PARAMETERS: lam = theoritical;  theoritical_lam = 19.1709;  numerical_method = ODE
-
-PATH PARAMETERS: Npath = 40  n_active = False  lamin = 0.011220184543019636;  numerical_method = ODE
-SELECTED PARAMETERS : 
-SIGMA FOR LAMFIXED  :  6.000336772926475
-SPEEDNESS : 
-Running time for Path computation    : 18.517s
-Running time for Cross Validation    : 'not computed'
-Running time for Stability Selection : 3.166s
-Running time for Fixed LAM           : 0.065s
+# Set up design matrix and zero-sum constraints for 45 genera
+X     = np.concatenate((X0, X_C, X_F, np.ones((len(X0), 1))), axis = 1) # Joint microbiome and covariate data and offset
+label = np.concatenate([labels, np.array(['Calorie', 'Fat', 'Bias'])])
+C = np.ones((1, len(X[0])))
+C[0, -1], C[0, -2], C[0, -3] = 0., 0., 0.
 
 
-```
+# Set up c-lassso problem
+problem = classo_problem(X, y, C, label = label)
 
 
-![Ex3.1](figures/exampleCOMBO/path.png)
+# Use stability selection with theoretical lambda [Combettes & Müller, 2020b]
+problem.model_selection.StabSelparameters.method      = 'lam'
+problem.model_selection.StabSelparameters.threshold_label = 0.5
 
-![Ex3.2](figures/exampleCOMBO/sigma.png)
+# Use formulation R3
+problem.formulation.concomitant = True
 
-![Ex3.3](figures/exampleCOMBO/distr.png)
+problem.solve()
+print(problem)
+print(problem.solution)
 
-![Ex3.4](figures/exampleCOMBO/beta.png)
+# Use formulation R4
+problem.formulation.huber = True
+problem.formulation.concomitant = True
 
-![Ex3.5](figures/exampleCOMBO/path_huber.png)
+problem.solve()
+print(problem)
+print(problem.solution)
 
-![Ex3.6](figures/exampleCOMBO/sigma_huber.png)
-
-![Ex3.7](figures/exampleCOMBO/distr_huber.png)
-
-![Ex3.8](figures_exampleCOMBO/beta_huber.png)
-
-
-Here is now the result of running the file "example_PH" which uses microbiome data : 
-```
-FORMULATION : Concomitant
-
-MODEL SELECTION COMPUTED :  Path,  Stability selection, Lambda fixed
-
-STABILITY SELECTION PARAMETERS: method = lam;  lamin = 0.01;  lam = theoritical;  B = 50;  q = 10;  percent_nS = 0.5;  threshold = 0.7;  numerical_method = ODE
-
-LAMBDA FIXED PARAMETERS: lam = theoritical;  theoritical_lam = 19.1991;  numerical_method = ODE
-
-PATH PARAMETERS: Npath = 500  n_active = False  lamin = 0.05  n_lam = 500;  numerical_method = ODE
-
-
-SIGMA FOR LAMFIXED  :  0.7473015322224758
-SPEEDNESS : 
-Running time for Path computation    : 0.08s
-Running time for Cross Validation    : 'not computed'
-Running time for Stability Selection : 1.374s
-Running time for Fixed LAM           : 0.024s
 ```
 
-![Ex4.1](figures/examplePH/Path.png)
+![3.Stability profile R3](https://github.com/Leo-Simpson/c-lasso/blob/master/figures/exampleFilteredCOMBO/R3-StabSel.png)
 
-![Ex4.2](figures/examplePH/Sigma.png)
+![3.Beta solution R3](https://github.com/Leo-Simpson/c-lasso/blob/master/figures/exampleFilteredCOMBO/R3-StabSel-beta.png)
 
-![Ex4.3](figures/examplePH/Sselection.png)
+![3.Stability profile R4](https://github.com/Leo-Simpson/c-lasso/blob/master/figures/exampleFilteredCOMBO/R4-StabSel.png)
 
-![Ex4.4](figures/examplePH/beta.png)
+![3.Beta solution R4](https://github.com/Leo-Simpson/c-lasso/blob/master/figures/exampleFilteredCOMBO/R4-StabSel-beta.png)
+
+
+<!---
+<img src="https://i.imgur.com/8tFmM8T.png" alt="Central Park Soil Microbiome" height="250" align="right"/>
+#### pH prediction using the Central Park soil dataset 
+The next microbiome example considers the [Central Park Soil dataset](./examples/pH_data) from [Ramirez et al.](https://royalsocietypublishing.org/doi/full/10.1098/rspb.2014.1988). The sample locations are shown in the Figure on the right.)
+-->
+
+#### pH prediction using the 88 soils dataset
+
+The next microbiome example considers the [88 soils dataset](./examples/pH_data) from [Lauber et al., 2009](https://pubmed.ncbi.nlm.nih.gov/19502440/).
+
+The task is to predict pH concentration in the soil from microbial abundance data. A similar analysis is available
+in [Tree-Aggregated Predictive Modeling of Microbiome Data](https://www.biorxiv.org/content/10.1101/2020.09.01.277632v1) 
+with Central Park soil data from [Ramirez et al.](https://royalsocietypublishing.org/doi/full/10.1098/rspb.2014.1988).
+
+Code to run this application is available in [the accompanying notebook](./examples/example-notebook.ipynb) under `pH data`. Below is a summary of a c-lasso problem instance (using the R3 formulation).
+ 
+```
+FORMULATION: R3
+ 
+MODEL SELECTION COMPUTED:  
+     Lambda fixed
+     Path
+     Stability selection
+ 
+LAMBDA FIXED PARAMETERS: 
+     numerical_method = Path-Alg
+     rescaled lam : True
+     threshold = 0.004
+     lam : theoretical
+     theoretical_lam = 0.2182
+ 
+PATH PARAMETERS: 
+     numerical_method : Path-Alg
+     lamin = 0.001
+     Nlam = 80
+ 
+ 
+STABILITY SELECTION PARAMETERS: 
+     numerical_method : Path-Alg
+     method : lam
+     B = 50
+     q = 10
+     percent_nS = 0.5
+     threshold = 0.7
+     lam = theoretical
+     theoretical_lam = 0.3085
+```
+
+The c-lasso estimation results are summarized below:
+
+```
+LAMBDA FIXED : 
+   Sigma  =  0.198
+   Selected variables :  14    18    19    39    43    57    62    85    93    94    104    107    
+   Running time :  0.008s
+
+ PATH COMPUTATION : 
+   Running time :  0.12s
+
+ STABILITY SELECTION : 
+   Selected variables :  2    12    15    
+   Running time :  0.287s
+```
+
+![Ex4.1](https://github.com/Leo-Simpson/c-lasso/blob/master/figures/examplePH/R3-Beta-path.png)
+
+![Ex4.2](https://github.com/Leo-Simpson/c-lasso/blob/master/figures/examplePH/R3-Sigma-path.png)
+
+![Ex4.3](https://github.com/Leo-Simpson/c-lasso/blob/master/figures/examplePH/R3-StabSel.png)
+
+![Ex4.4](https://github.com/Leo-Simpson/c-lasso/blob/master/figures/examplePH/R3-StabSel-beta.png)
+
+![Ex4.5](https://github.com/Leo-Simpson/c-lasso/blob/master/figures/examplePH/R3-beta.png)
 
 
 ## Optimization schemes
@@ -382,14 +495,18 @@ with the mean shift (see [6]) and thus solved in (n + d) dimensions.
 
 * [1] B. R. Gaines, J. Kim, and H. Zhou, [Algorithms for Fitting the Constrained Lasso](https://www.tandfonline.com/doi/abs/10.1080/10618600.2018.1473777?journalCode=ucgs20), J. Comput. Graph. Stat., vol. 27, no. 4, pp. 861–871, 2018.
 
-* [2] L. Briceno-Arias, S.L. Rivera, [A Projected Primal–Dual Method for Solving Constrained Monotone Inclusions](https://link.springer.com/article/10.1007/s10957-018-1430-2?shared-article-renderer), J. Optim. Theory Appl., vol. 180, Issue 3, March 2019.
+* [2] L. Briceno-Arias and S.L. Rivera, [A Projected Primal–Dual Method for Solving Constrained Monotone Inclusions](https://link.springer.com/article/10.1007/s10957-018-1430-2?shared-article-renderer), J. Optim. Theory Appl., vol. 180, Issue 3, March 2019.
 
-* [3] P. L. Combettes and J.C. Pesquet, [Primal-Dual Splitting Algorithm for Solving Inclusions with Mixtures of Composite, Lipschitzian, and Parallel-Sum Type Monotone Operators](https://arxiv.org/pdf/1107.0081.pdf), Set-Valued and Variational Analysis, vol. 20, pp 307--330, 2012.
+* [3] P. L. Combettes and J.C. Pesquet, [Primal-Dual Splitting Algorithm for Solving Inclusions with Mixtures of Composite, Lipschitzian, and Parallel-Sum Type Monotone Operators](https://arxiv.org/pdf/1107.0081.pdf), Set-Valued and Variational Analysis, vol. 20, pp. 307-330, 2012.
 
 * [4] P. L. Combettes and C. L. Müller, [Perspective M-estimation via proximal decomposition](https://arxiv.org/abs/1805.06098), Electronic Journal of Statistics, 2020, [Journal version](https://projecteuclid.org/euclid.ejs/1578452535) 
 
-* [5] P. L. Combettes and C. L. Müller, [Regression models for compositional data: General log-contrast formulations, proximal optimization, and microbiome data applications](https://arxiv.org/abs/1903.01050), arXiv, 2019.
+* [5] P. L. Combettes and C. L. Müller, [Regression models for compositional data: General log-contrast formulations, proximal optimization, and microbiome data applications](https://arxiv.org/abs/1903.01050), Statistics in Bioscience, 2020.
 
 * [6] A. Mishra and C. L. Müller, [Robust regression with compositional covariates](https://arxiv.org/abs/1909.04990), arXiv, 2019.
+
+* [7] S. Rosset and J. Zhu, [Piecewise linear regularized solution paths](https://projecteuclid.org/euclid.aos/1185303996), Ann. Stat., vol. 35, no. 3, pp. 1012–1030, 2007.
+
+* [8] J. Bien, X. Yan, L. Simpson, and C. L. Müller,   [Tree-Aggregated Predictive Modeling of Microbiome Data](https://www.biorxiv.org/content/10.1101/2020.09.01.277632v1), biorxiv, 2020.
 
 
